@@ -64,4 +64,12 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+
+    debugImplementation("com.squareup.retrofit2:retrofit:2.9.0")
+    debugImplementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    debugImplementation("com.squareup.okhttp3:logging-interceptor:4.9.1")
+    debugImplementation("org.simpleframework:simple-xml:2.7.1")
+    debugImplementation("com.squareup.retrofit2:converter-simplexml:2.9.0")
+
 }

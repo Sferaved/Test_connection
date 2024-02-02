@@ -1,6 +1,8 @@
 package com.myapp.testconnection
 
+import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,9 +35,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,11 +50,22 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import com.myapp.office_mp.data.Dog
-import com.myapp.office_mp.data.dogs
-
-
+import androidx.compose.ui.unit.dp
+import com.google.gson.Gson
+import com.myapp.testconnection.data.Dog
+import com.myapp.testconnection.data.ServersData
+import com.myapp.testconnection.data.dogs
 import com.myapp.testconnection.ui.theme.TestConnectionTheme
+import com.myapp.testconnection.utils.server_time.ApiClient
+import com.myapp.testconnection.utils.server_time.ServerTimeResponse
+import com.myapp.testconnection.utils.server_time.TestCompletionCallback
+import com.myapp.testconnection.utils.server_time.TestConnectServers
+import okhttp3.ResponseBody
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.HttpException
+import retrofit2.Response
+import java.io.IOException
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,9 +74,10 @@ class MainActivity : ComponentActivity() {
             TestConnectionTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
                 ) {
-                    TestConnectionApp()
+                    TestResultsScreen()
                 }
             }
         }
@@ -111,7 +127,7 @@ fun DogItem(
     Card(modifier = modifier) {
         Column(
             modifier = Modifier
-                .animateContentSize (
+                .animateContentSize(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessLow
@@ -122,7 +138,8 @@ fun DogItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(dimensionResource(id = R.dimen.padding_small)
+                    .padding(
+                        dimensionResource(id = R.dimen.padding_small)
                     )
             ) {
                 DogIcon(dog.imageResourceId)
@@ -278,5 +295,188 @@ private fun dogHobby(
             text = stringResource(dogHobby),
             style = MaterialTheme.typography.bodyLarge
         )
+    }
+}
+
+
+data class ServerData(val url: String, val dateTimeNowUtc: String, val duration: Long)
+
+fun checking() {
+    val urls = listOf(
+        "http://167.235.113.231:7307/",
+        "http://167.235.113.231:7306/",
+        "http://134.249.181.173:7208",
+        "http://91.205.17.153:7208",
+        "http://31.43.107.151:7303",
+        // Add more URLs as needed
+    )
+
+    val serverDataList = mutableListOf<ServerData>()
+
+    val callback = object : TestCompletionCallback {
+        override fun onTestComplete(url: String, dateTimeNowUtc: String, duration: Long) {
+            // Handle test completion
+            serverDataList.add(ServerData(url, dateTimeNowUtc, duration))
+
+            // Check if all requests are completed
+            if (serverDataList.size == urls.size) {
+                // All requests are completed, do something with the list
+                processServerDataList(serverDataList)
+            }
+        }
+    }
+
+    // Make requests for each URL
+    for (url in urls) {
+        beginTest(url, callback, "TAG_MAIN")
+    }
+
+}
+
+
+private fun processServerDataList(serverDataList: List<ServerData>) {
+    // Process the list of ServerData
+
+    for (serverData in serverDataList) {
+        Log.d("TAG_MAIN","URL: ${serverData.url}, DateTimeNowUtc: ${serverData.dateTimeNowUtc}, Duration: ${serverData.duration}")
+    }
+
+}
+
+private fun beginTest(url: String, callback: TestCompletionCallback, TAG: String?) {
+    val startTime = System.currentTimeMillis()
+    val apiService = ApiClient.getApiService(url)
+    Log.d(TAG, "TestConnectServers: ")
+    val call: Call<ResponseBody> = apiService.getServerTimeInfo()
+
+    call.enqueue(object : Callback<ResponseBody> {
+        override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+            if (response.isSuccessful) {
+                try {
+                    val responseBodyString = response.body()?.string()
+
+                    val gson = Gson()
+                    val serverTimeResponse = gson.fromJson(responseBodyString, ServerTimeResponse::class.java)
+
+                    val dateTimeNowUtc = serverTimeResponse.datetimeNowUtc
+
+                    Log.d(TAG, "onResponse: DateTimeNowUtc $dateTimeNowUtc")
+
+                    val endTime = System.currentTimeMillis()
+                    val duration = endTime - startTime
+
+                    Log.d(TAG, "onResponse:time connection $duration")
+
+                    callback.onTestComplete(url, dateTimeNowUtc, duration)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            } else {
+                val errorCode = response.code()
+                var errorBody = ""
+
+                try {
+                    errorBody = response.errorBody()?.string() ?: ""
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                }
+
+                Log.e(TAG, "onResponse: Unsuccessful request. Code: $errorCode, Body: $errorBody")
+            }
+        }
+
+        override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+            Log.e(TAG, "onFailure: Unexpected error: ${t.message}")
+
+            if (t is HttpException) {
+                val errorBody = t.response()?.errorBody()
+                try {
+                    Log.e(TAG, "onFailure: Error body: ${errorBody?.string()}")
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                }
+            } else {
+                Log.e(TAG, "onFailure: Non-HttpException error handling")
+
+                if (t.message != null) {
+                    Log.e(TAG, "onFailure: Throwable message: ${t.message}")
+                }
+            }
+        }
+    })
+
+
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TestResultsScreen() {
+    var serverDataList by remember { mutableStateOf(emptyList<ServerData>()) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        TopAppBar(title = { Text("Test Results") })
+
+        // Display test results in a LazyColumn
+        LazyColumn {
+            items(serverDataList) { serverData ->
+                ServerDataItem(serverData = serverData)
+            }
+        }
+
+        // Start tests when the screen is created
+        LaunchedEffect(Unit) {
+            checking { results ->
+                serverDataList = results
+            }
+        }
+    }
+}
+
+@Composable
+fun ServerDataItem(serverData: ServerData) {
+    Column {
+        Text("URL: ${serverData.url}")
+        Text("DateTimeNowUtc: ${serverData.dateTimeNowUtc}")
+        Text("Duration: ${serverData.duration}")
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+// Replace the checking function with this updated version
+fun checking(callback: (List<ServerData>) -> Unit) {
+    val urls = listOf(
+        "http://167.235.113.231:7307/",
+        "http://167.235.113.231:7306/",
+        "http://134.249.181.173:7208",
+        "http://91.205.17.153:7208",
+        "http://31.43.107.151:7303",
+        "http://142.132.213.111:8071",
+        "http://142.132.213.111:8072",
+        "http://142.132.213.111:8073",
+        "http://134.249.181.173:7201",
+        "http://31.43.107.151:7303",
+    )
+
+    val serverDataList = mutableListOf<ServerData>()
+
+    val callbackImpl = object : TestCompletionCallback {
+        override fun onTestComplete(url: String, dateTimeNowUtc: String, duration: Long) {
+            serverDataList.add(ServerData(url, dateTimeNowUtc, duration))
+
+            // Check if all requests are completed
+            if (serverDataList.size == urls.size) {
+                // All requests are completed, invoke the callback with the list
+                callback(serverDataList)
+            }
+        }
+    }
+
+    // Make requests for each URL
+    for (url in urls) {
+        beginTest(url, callbackImpl, "TAG_MAIN")
     }
 }

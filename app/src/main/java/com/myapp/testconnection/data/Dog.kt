@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.myapp.office_mp.data
+package com.myapp.testconnection.data
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
