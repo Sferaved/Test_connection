@@ -1,12 +1,9 @@
 package com.myapp.testconnection
 
-import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
@@ -31,11 +28,11 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,22 +41,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
-import com.myapp.testconnection.data.Dog
-import com.myapp.testconnection.data.ServersData
-import com.myapp.testconnection.data.dogs
+import com.myapp.testconnection.data.ServerData
+import com.myapp.testconnection.data.urls
 import com.myapp.testconnection.ui.theme.TestConnectionTheme
 import com.myapp.testconnection.utils.server_time.ApiClient
 import com.myapp.testconnection.utils.server_time.ServerTimeResponse
 import com.myapp.testconnection.utils.server_time.TestCompletionCallback
-import com.myapp.testconnection.utils.server_time.TestConnectServers
+import kotlinx.coroutines.delay
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
@@ -84,178 +80,49 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Composable that displays an app bar and a list of dogs.
- */
 @Composable
-fun TestConnectionApp() {
-    Scaffold (
-        topBar = {
-            TestConnectionTopAppBar()
-        }
-    ){ it->
-        LazyColumn (contentPadding = it) {
-            items(dogs) {
-                DogItem(
-                    dog = it,
-                    modifier = Modifier.padding(dimensionResource(id = R.dimen.padding_small))
-                )
-            }
-        }
-    }
-}
-
-/**
- * Composable that displays a list item containing a dog icon and their information.
- *
- * @param dog contains the data that populates the list item
- * @param modifier modifiers to set to this composable
- */
-@Composable
-fun DogItem(
-    dog: Dog,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember {
-        mutableStateOf(false)
-    }
-    val color by animateColorAsState(
-        targetValue = if (expanded) MaterialTheme.colorScheme.tertiaryContainer
-        else MaterialTheme.colorScheme.primaryContainer,
-        label = "",
-    )
-    Card(modifier = modifier) {
-        Column(
-            modifier = Modifier
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
-                .background(color = color)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        dimensionResource(id = R.dimen.padding_small)
-                    )
-            ) {
-                DogIcon(dog.imageResourceId)
-                DogInformation(dog.name, dog.age)
-                Spacer(modifier = Modifier.weight(1f))
-                ItemButton(
-                    expanded = expanded,
-                    onClick = {expanded = !expanded}
-                )
-            }
-            if (expanded){
-                dogHobby(
-                    dog.hobbies,
-                    modifier = Modifier.padding(
-                        start = dimensionResource(id = R.dimen.padding_medium),
-                        top = dimensionResource(id = R.dimen.padding_small),
-                        end = dimensionResource(id = R.dimen.padding_medium),
-                        bottom = dimensionResource(id = R.dimen.padding_medium)
-                    )
-                )
-            }
-        }
-    }
-}
-
-/**
- * Composable that displays a photo of a dog.
- *
- * @param dogIcon is the resource ID for the image of the dog
- * @param modifier modifiers to set to this composable
- */
-@Composable
-fun DogIcon(
-    @DrawableRes dogIcon: Int,
-    modifier: Modifier = Modifier
-) {
+fun ServerIcon() {
     Image(
-        modifier = modifier
-            .size(dimensionResource(R.dimen.image_size))
-            .padding(dimensionResource(R.dimen.padding_small))
-            .clip(MaterialTheme.shapes.small),
-        painter = painterResource(dogIcon),
-        contentScale = ContentScale.Crop,
-
-        // Content Description is not needed here - image is decorative, and setting a null content
-        // description allows accessibility services to skip this element during navigation.
-
+        modifier = Modifier
+            .size(dimensionResource(id = R.dimen.image_size))
+            .padding(dimensionResource(id = R.dimen.padding_small)),
+        painter = painterResource(id = R.drawable.bullet_2157465),
         contentDescription = null
     )
 }
 
-/**
- * Composable that displays a dog's name and age.
- *
- * @param dogName is the resource ID for the string of the dog's name
- * @param dogAge is the Int that represents the dog's age
- * @param modifier modifiers to set to this composable
- */
-@Composable
-fun DogInformation(
-    @StringRes dogName: Int,
-    dogAge: Int,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = stringResource(dogName),
-            style = MaterialTheme.typography.displayMedium,
-            modifier = Modifier.padding(top = dimensionResource(R.dimen.padding_small))
-        )
-        Text(
-            text = stringResource(R.string.years_old, dogAge),
-            style = MaterialTheme.typography.bodyLarge
-        )
-    }
-}
-
-/**
- * Composable that displays what the UI of the app looks like in light theme in the design tab.
- */
-@Preview
-@Composable
-fun TestConnectionPreview() {
-    TestConnectionTheme(darkTheme = false) {
-        TestConnectionApp()
-    }
-}
-
-@Preview
-@Composable
-fun TestConnectionDarkThemePreview() {
-    TestConnectionTheme(darkTheme = true) {
-        TestConnectionApp()
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TestConnectionTopAppBar(modifier: Modifier = Modifier) {
+fun TestConnectionTopAppBar(
+    modifier: Modifier = Modifier,
+    isChecking: Boolean
+) {
+
     CenterAlignedTopAppBar(
         title = {
-            Row (
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
+            Column {
+                Row (
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .size(dimensionResource(id = R.dimen.image_size))
-                        .padding(dimensionResource(id = R.dimen.padding_small)),
-                    painter = painterResource(id = R.drawable.bullet_2157465),
-                    contentDescription = null
-                )
-                Text(
-                    text = stringResource(id = R.string.app_name),
-                    style = MaterialTheme.typography.displayLarge
-                )
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.app_name),
+                        style = MaterialTheme.typography.displayLarge.copy(textAlign = TextAlign.Center)
+                    )
+                }
+                if (isChecking) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(20.dp)
+                            .padding(4.dp),
+                        color = Color.Green,
+                        trackColor = Color.Red,
+                        strokeCap = StrokeCap.Butt
+                    )
+                }
             }
+
 
         },
         modifier = modifier
@@ -280,68 +147,34 @@ private fun ItemButton(
     }
 }
 @Composable
-private fun dogHobby(
-    @StringRes dogHobby: Int,
+private fun serverInfo(
+    serverData: ServerData,
     modifier: Modifier = Modifier
 ) {
     Column (
         modifier = modifier
     ) {
         Text(
-            text = stringResource(id = R.string.about),
-            style = MaterialTheme.typography.labelSmall
-        )
-        Text(
-            text = stringResource(dogHobby),
+            text = if (serverData.duration.toInt() == 10000) {
+                " "
+            } else {
+                "Время Utc: ${serverData.dateTimeNowUtc}"
+            },
             style = MaterialTheme.typography.bodyLarge
         )
+        Text(
+            text = if (serverData.duration.toInt() == 10000) {
+                "Скорость подключения (мс) >10000"
+            } else {
+                "Скорость подключения (мс): ${serverData.duration}"
+            },
+            style = MaterialTheme.typography.bodyLarge
+        )
+
+
     }
 }
 
-
-data class ServerData(val url: String, val dateTimeNowUtc: String, val duration: Long)
-
-fun checking() {
-    val urls = listOf(
-        "http://167.235.113.231:7307/",
-        "http://167.235.113.231:7306/",
-        "http://134.249.181.173:7208",
-        "http://91.205.17.153:7208",
-        "http://31.43.107.151:7303",
-        // Add more URLs as needed
-    )
-
-    val serverDataList = mutableListOf<ServerData>()
-
-    val callback = object : TestCompletionCallback {
-        override fun onTestComplete(url: String, dateTimeNowUtc: String, duration: Long) {
-            // Handle test completion
-            serverDataList.add(ServerData(url, dateTimeNowUtc, duration))
-
-            // Check if all requests are completed
-            if (serverDataList.size == urls.size) {
-                // All requests are completed, do something with the list
-                processServerDataList(serverDataList)
-            }
-        }
-    }
-
-    // Make requests for each URL
-    for (url in urls) {
-        beginTest(url, callback, "TAG_MAIN")
-    }
-
-}
-
-
-private fun processServerDataList(serverDataList: List<ServerData>) {
-    // Process the list of ServerData
-
-    for (serverData in serverDataList) {
-        Log.d("TAG_MAIN","URL: ${serverData.url}, DateTimeNowUtc: ${serverData.dateTimeNowUtc}, Duration: ${serverData.duration}")
-    }
-
-}
 
 private fun beginTest(url: String, callback: TestCompletionCallback, TAG: String?) {
     val startTime = System.currentTimeMillis()
@@ -372,6 +205,7 @@ private fun beginTest(url: String, callback: TestCompletionCallback, TAG: String
                     e.printStackTrace()
                 }
             } else {
+                callback.onTestComplete(url, "", 10000)
                 val errorCode = response.code()
                 var errorBody = ""
 
@@ -386,6 +220,7 @@ private fun beginTest(url: String, callback: TestCompletionCallback, TAG: String
         }
 
         override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+            callback.onTestComplete(url, "", 10000)
             Log.e(TAG, "onFailure: Unexpected error: ${t.message}")
 
             if (t is HttpException) {
@@ -412,54 +247,107 @@ private fun beginTest(url: String, callback: TestCompletionCallback, TAG: String
 @Composable
 fun TestResultsScreen() {
     var serverDataList by remember { mutableStateOf(emptyList<ServerData>()) }
+    var isChecking by remember { mutableStateOf(true) } // Флаг для отслеживания статуса проверки
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        TopAppBar(title = { Text("Test Results") })
 
-        // Display test results in a LazyColumn
-        LazyColumn {
-            items(serverDataList) { serverData ->
-                ServerDataItem(serverData = serverData)
+    Scaffold (
+        topBar = {
+            TestConnectionTopAppBar(
+                modifier = Modifier,
+                isChecking)
+        }
+    ){ it->
+
+
+        LazyColumn(
+            contentPadding = it,
+            modifier = Modifier
+                .background(color = Color.LightGray)
+        ) {
+            items(serverDataList.sortedByDescending { it.duration }) { serverData ->
+                ServerDataItem(
+                    serverData = serverData,
+                    modifier = Modifier.padding(dimensionResource(id = R.dimen.padding_small))
+                )
             }
         }
 
         // Start tests when the screen is created
         LaunchedEffect(Unit) {
-            checking { results ->
-                serverDataList = results
+            while (true) {
+                checking { results ->
+                    serverDataList = results
+                    isChecking = false
+                }
+                delay( 15 * 60 * 1000) // Задержка в 2 минуты перед следующей проверкой
             }
         }
     }
 }
 
 @Composable
-fun ServerDataItem(serverData: ServerData) {
-    Column {
-        Text("URL: ${serverData.url}")
-        Text("DateTimeNowUtc: ${serverData.dateTimeNowUtc}")
-        Text("Duration: ${serverData.duration}")
-        Spacer(modifier = Modifier.height(8.dp))
+fun ServerDataItem(
+    serverData: ServerData,
+    modifier: Modifier = Modifier
+) {
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+    val color by animateColorAsState(
+        targetValue = if (expanded) MaterialTheme.colorScheme.tertiaryContainer
+        else if (serverData.duration.toInt() == 10000) Color.Red
+        else MaterialTheme.colorScheme.primaryContainer,
+        label = "",
+    )
+    Card(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
+                .background(color = color)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        dimensionResource(id = R.dimen.padding_small)
+                    )
+            ) {
+                ServerIcon()
+                Text(
+                    "URL: ${serverData.url}",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = dimensionResource(R.dimen.padding_small))
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+                ItemButton(
+                    expanded = expanded,
+                    onClick = {expanded = !expanded}
+                )
+            }
+            if (expanded){
+                serverInfo(
+                    serverData,
+                    modifier = Modifier.padding(
+                        start = dimensionResource(id = R.dimen.padding_medium),
+                        top = dimensionResource(id = R.dimen.padding_small),
+                        end = dimensionResource(id = R.dimen.padding_medium),
+                        bottom = dimensionResource(id = R.dimen.padding_medium)
+                    )
+                )
+            }
+        }
     }
 }
 
 // Replace the checking function with this updated version
 fun checking(callback: (List<ServerData>) -> Unit) {
-    val urls = listOf(
-        "http://167.235.113.231:7307/",
-        "http://167.235.113.231:7306/",
-        "http://134.249.181.173:7208",
-        "http://91.205.17.153:7208",
-        "http://31.43.107.151:7303",
-        "http://142.132.213.111:8071",
-        "http://142.132.213.111:8072",
-        "http://142.132.213.111:8073",
-        "http://134.249.181.173:7201",
-        "http://31.43.107.151:7303",
-    )
 
     val serverDataList = mutableListOf<ServerData>()
 
